@@ -64,11 +64,23 @@ static void doRead(HANDLE device, const std::vector<std::string> tokens) {
         return;
     }
 
+    LARGE_INTEGER li;
+    li.QuadPart = offset;
+
+    if (!SetFilePointerEx(device, li, NULL, FILE_BEGIN)) {
+        std::cerr << "[ERROR] Could not set file pointer to offset "
+                  << offset
+                  << ". Error code: "
+                  << GetLastError()
+                  << ".\n";
+        return;
+    }
+
     DWORD dwBytesRead = 0;
 
     if (!ReadFile(device, 
-                  readBuffer, 
-                  sizeof(readBuffer), 
+                  readBuffer + offset, 
+                  length, 
                   &dwBytesRead, 
                   NULL)) {
 
@@ -100,6 +112,18 @@ static void doWrite(HANDLE device, const std::vector<std::string> tokens) {
         return;
     }
 
+    LARGE_INTEGER li;
+    li.QuadPart = offset;
+
+    if (!SetFilePointerEx(device, li, NULL, FILE_BEGIN)) {
+        std::cerr << "[ERROR] Could not set file pointer to offset "
+                  << offset
+                  << ". Error code: "
+                  << GetLastError()
+                  << ".\n";
+        return;
+    }
+
     DWORD dwBytesWritten = 0;
 
     std::memcpy(&writeBuffer[offset],
@@ -108,7 +132,7 @@ static void doWrite(HANDLE device, const std::vector<std::string> tokens) {
 
     if (!WriteFile(device,
                    writeBuffer, 
-                   sizeof(writeBuffer), 
+                   length, 
                    &dwBytesWritten,
                    NULL)) {
 
@@ -140,7 +164,8 @@ int main() {
         return EXIT_FAILURE;
     }
 
-    std::cout << "[INFO] MemoryGraveyard Client started.\nType "
+    std::cout << "[INFO] Successfully opened a handle to MemoryGraveyard "
+                 "device driver.\n"
                  "'read OFFSET LENGTH' or 'write OFFSET TEXT' "
                  "to interact.\n";
 
@@ -168,10 +193,11 @@ int main() {
         } else if (tokens[0] == std::string("write")) {
             doWrite(device, tokens);
         } else if (tokens[0] == std::string("exit")) {
-            return EXIT_SUCCESS;
+            break;
         }
     }
 
     CloseHandle(device);
+    std::cout << "[INFO] Closed the driver handle.\n";
     return EXIT_SUCCESS;
 }
