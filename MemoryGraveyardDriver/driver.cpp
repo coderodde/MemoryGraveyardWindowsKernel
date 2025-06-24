@@ -155,6 +155,7 @@ extern "C" NTSTATUS DriverEntry(IN PDRIVER_OBJECT DriverObject, IN PUNICODE_STRI
     DriverObject->Flags |= DO_BUFFERED_IO;
 
     status = IoCreateSymbolicLink(&symbolicLink, &deviceName);
+
     if (!NT_SUCCESS(status)) {
         IoDeleteDevice(DeviceObject);
         return status;

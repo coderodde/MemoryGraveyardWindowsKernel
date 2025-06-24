@@ -84,7 +84,7 @@ static void doRead(HANDLE device, const std::vector<std::string> tokens) {
                   &dwBytesRead, 
                   NULL)) {
 
-        std::cerr << "[ERROR] Could not read from memory graveyard."
+        std::cerr << "[ERROR] Could not read from memory graveyard. "
                      "Error code: "
                   << GetLastError()
                   << ".\n";
@@ -126,9 +126,9 @@ static void doWrite(HANDLE device, const std::vector<std::string> tokens) {
 
     DWORD dwBytesWritten = 0;
 
-    std::memcpy(&writeBuffer[offset],
-                ctext, 
-                tokens[2].length() + 1);
+    //std::memcpy(&writeBuffer[offset],
+    //            ctext, 
+    //            tokens[2].length() + 1);
 
     if (!WriteFile(device,
                    writeBuffer, 
@@ -180,6 +180,7 @@ int main() {
             return EXIT_FAILURE;
         }
 
+        std::cout << ">>> ";
         std::string cmd;
         std::getline(std::cin, cmd);
         std::vector<std::string> tokens = split_by_whitespace(cmd);
