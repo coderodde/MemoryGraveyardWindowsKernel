@@ -1,5 +1,4 @@
 #include <ntddk.h>
-#include <cstring>
 
 /*
 This device driver is not supposed to synchronize access to the graveyard buffer.
@@ -8,7 +7,7 @@ Also, it is not supposed to initialize the graveyard.
 
 #define BUFF_SIZE 1024
 
-wchar_t graveyard[BUFF_SIZE];
+static char graveyard[BUFF_SIZE];
 
 // Marks the Irp as completed and returns an error status for bad parameters:
 static NTSTATUS badParamsReturn(PIRP Irp) {
@@ -29,71 +28,68 @@ static NTSTATUS normalReturn(PIRP Irp,
 }
 
 // Checks if the parameters are valid:
-static bool badParams(PVOID userBuffer, 
+static bool badParams(PVOID     userBuffer, 
                       ULONGLONG offsetBytes,
-                      ULONG lengthBytes) {
+                      ULONG     lengthBytes) {
 
-    if (userBuffer == nullptr) return true;
+    if (userBuffer == nullptr || lengthBytes == 0) return true;
 
-    if (lengthBytes == 0
-        || offsetBytes % sizeof(wchar_t) != 0
-        || lengthBytes % sizeof(wchar_t) != 0) {
-     
+    // The size of the graveyard buffer:
+    ULONGLONG graveyardSize = sizeof(graveyard);
+
+    if (offsetBytes >= graveyardSize) {
         return true;
     }
 
-    // The size of the graveyard buffer:
-    ULONGLONG graveyardSizeBytes = sizeof(graveyard);
-
-    // The actual bound check:
-    return offsetBytes >= graveyardSizeBytes ||
-           lengthBytes >  graveyardSizeBytes ||
-           offsetBytes + lengthBytes > graveyardSizeBytes;
+    return lengthBytes > graveyardSize - offsetBytes;
 }
 
 // Read handler:
-static void serveReadRequest(PVOID userBuffer,
-                             DWORD32 wcharOffset, 
-                             ULONG wcharLength) {
+static void serveReadRequest(PVOID     userBuffer,
+                             ULONGLONG offset, 
+                             ULONG     length) {
+
     RtlCopyMemory(userBuffer, 
-                  &graveyard[wcharOffset],
-                  wcharLength * sizeof(wchar_t));
+                  &graveyard[(size_t) offset],
+                  length);
 }
 
 // Write handler:
-static void serveWriteRequest(PVOID userBuffer,
-                              DWORD32 wcharOffset,
-                              ULONG wcharLength) {
-    RtlCopyMemory(&graveyard[wcharOffset],
+static void serveWriteRequest(PVOID     userBuffer,
+                              ULONGLONG offset,
+                              ULONG     length) {
+
+    RtlCopyMemory(&graveyard[(size_t) offset],
                   userBuffer, 
-                  wcharLength * sizeof(wchar_t));
+                  length);
 }
 
 // The read handler for the driver:
 NTSTATUS MyRead(IN PDEVICE_OBJECT DeviceObject, 
-                IN PIRP Irp) {
+                IN PIRP           Irp) {
 
     UNREFERENCED_PARAMETER(DeviceObject);
 
-    auto stack = IoGetCurrentIrpStackLocation(Irp);
-    auto lengthBytes = stack->Parameters.Read.Length;
-    auto offsetBytes = stack->Parameters.Read.ByteOffset.QuadPart;
+    auto stack  = IoGetCurrentIrpStackLocation(Irp);
+    auto length = stack->Parameters.Read.Length;
+    auto offset = stack->Parameters.Read.ByteOffset.QuadPart;
 
-    DbgPrint("MyRead: Offset %llu, Length %lu\n",
-             offsetBytes, 
-             lengthBytes);
+    DbgPrint("MyRead: offset %llu, length %lu\n",
+             offset, 
+             length);
 
     PVOID userBuffer = Irp->AssociatedIrp.SystemBuffer;
 
-    if (badParams(userBuffer, offsetBytes, lengthBytes)) {
+    if (badParams(userBuffer, offset, length)) {
         return badParamsReturn(Irp);
     }
 
-    DWORD32 wcharOffset = static_cast<DWORD32>(offsetBytes / sizeof(wchar_t));
-    ULONG wcharLength = lengthBytes / sizeof(wchar_t);
+    serveReadRequest(userBuffer, 
+                     offset, 
+                     length);
 
-    serveReadRequest(userBuffer, wcharOffset, wcharLength);
-    return normalReturn(Irp, wcharLength * sizeof(wchar_t));
+    return normalReturn(Irp, 
+                        length);
 }
 
 // The write handler for the driver:
@@ -101,25 +97,26 @@ NTSTATUS MyWrite(IN PDEVICE_OBJECT DeviceObject,
                  IN PIRP Irp) {
     UNREFERENCED_PARAMETER(DeviceObject);
 
-    auto stack = IoGetCurrentIrpStackLocation(Irp);
-    auto lengthBytes = stack->Parameters.Write.Length;
-    auto offsetBytes = stack->Parameters.Write.ByteOffset.QuadPart;
+    auto stack  = IoGetCurrentIrpStackLocation(Irp);
+    auto length = stack->Parameters.Write.Length;
+    auto offset = stack->Parameters.Write.ByteOffset.QuadPart;
 
-    DbgPrint("MyWrite: Offset %llu, Length %lu\n", 
-             offsetBytes,
-             lengthBytes);
+    DbgPrint("MyWrite: offset %llu, length %lu\n", 
+             offset,
+             length);
 
     PVOID userBuffer = Irp->AssociatedIrp.SystemBuffer;
 
-    if (badParams(userBuffer, offsetBytes, lengthBytes)) {
+    if (badParams(userBuffer, offset, length)) {
         return badParamsReturn(Irp);
     }
 
-    DWORD32 wcharOffset = static_cast<DWORD32>(offsetBytes / sizeof(wchar_t));
-    ULONG wcharLength = lengthBytes / sizeof(wchar_t);
+    serveWriteRequest(userBuffer,
+                      offset,
+                      length);
 
-    serveWriteRequest(userBuffer, wcharOffset, wcharLength);
-    return normalReturn(Irp, wcharLength * sizeof(wchar_t));
+    return normalReturn(Irp, 
+                        length);
 }
 
 NTSTATUS MyCreateClose(IN PDEVICE_OBJECT DeviceObject, 
@@ -164,10 +161,10 @@ extern "C" NTSTATUS DriverEntry(IN PDRIVER_OBJECT DriverObject, IN PUNICODE_STRI
     }
 
     DriverObject->MajorFunction[IRP_MJ_CREATE] = MyCreateClose;
-    DriverObject->MajorFunction[IRP_MJ_CLOSE] = MyCreateClose;
-    DriverObject->MajorFunction[IRP_MJ_READ] = MyRead;
-    DriverObject->MajorFunction[IRP_MJ_WRITE] = MyWrite;
-    DriverObject->DriverUnload = DriverUnload;
+    DriverObject->MajorFunction[IRP_MJ_CLOSE]  = MyCreateClose;
+    DriverObject->MajorFunction[IRP_MJ_READ]   = MyRead;
+    DriverObject->MajorFunction[IRP_MJ_WRITE]  = MyWrite;
+    DriverObject->DriverUnload                 = DriverUnload;
 
     DbgPrint("MemoryGraveyard driver loaded.\n");
 
