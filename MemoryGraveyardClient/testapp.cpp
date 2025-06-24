@@ -10,6 +10,33 @@
 static alignas(512) BYTE readBuffer [BUFF_SIZE];
 static alignas(512) BYTE writeBuffer[BUFF_SIZE];
 
+static bool validParameters(const long long offset, const DWORD length) {
+
+    if (offset < 0 || offset >= BUFF_SIZE) {
+
+        std::cerr << "[ERROR] Offset out of bounds (" 
+                  << offset 
+                  << "). Must be between 0 and "
+                  << BUFF_SIZE - 1
+                  << ".\n";
+
+        return false;
+    }
+
+    if (length <= 0 || offset + length > BUFF_SIZE) {
+
+        std::cerr << "[ERROR] Length out of bounds ("
+                  << length
+                  << "). Must be positive and not exceed buffer size ("
+                  << BUFF_SIZE
+                  << ").\n";
+
+        return false;
+    }
+
+    return true;
+}
+
 static std::vector<std::string> split_by_whitespace(const std::string& input) {
 
     std::stringstream ss(input);
@@ -25,13 +52,17 @@ static std::vector<std::string> split_by_whitespace(const std::string& input) {
 
 static void doRead(HANDLE device, const std::vector<std::string> tokens) {
     if (tokens.size() < 3) {
-        std::cerr << "[ERROR] Invalid read command."
+        std::cerr << "[ERROR] Invalid read command. "
                      "Must be 'read OFFSET LENGTH'\n";
         return;
     }
 
     auto offset = std::atoi(tokens[1].c_str());
     auto length = std::atoi(tokens[2].c_str());
+
+    if (!validParameters(offset, length)) {
+        return;
+    }
 
     DWORD dwBytesRead = 0;
 
@@ -55,17 +86,25 @@ static void doRead(HANDLE device, const std::vector<std::string> tokens) {
 
 static void doWrite(HANDLE device, const std::vector<std::string> tokens) {
     if (tokens.size() < 3) {
-        std::cerr << "[ERROR] Invalid write command."
+        std::cerr << "[ERROR] Invalid write command. "
                      "Must be 'write OFFSET TEXT'\n";
         return;
     }
 
     auto offset = std::atoi(tokens[1].c_str());
-    auto text   = tokens[2].c_str();
+    auto text = tokens[2];
+    auto ctext = text.c_str();
+    auto length = text.length() + 1; // +1 for null terminator!
+
+    if (!validParameters(offset, length)) {
+        return;
+    }
 
     DWORD dwBytesWritten = 0;
 
-    std::memcpy(&writeBuffer[offset], text, tokens[2].length() + 1);
+    std::memcpy(&writeBuffer[offset],
+                ctext, 
+                tokens[2].length() + 1);
 
     if (!WriteFile(device,
                    writeBuffer, 
@@ -88,13 +127,13 @@ static void doWrite(HANDLE device, const std::vector<std::string> tokens) {
 
 int main() {
 
-    HANDLE device = CreateFile(L"\\\\.\\MemoryGraveyard",
-                               GENERIC_READ | GENERIC_WRITE,
-                               0,
-                               nullptr,
-                               OPEN_EXISTING,
-                               FILE_ATTRIBUTE_NORMAL,
-                               nullptr);
+    HANDLE device = CreateFileA("\\\\.\\MemoryGraveyard",
+                                GENERIC_READ | GENERIC_WRITE,
+                                0,
+                                nullptr,
+                                OPEN_EXISTING,
+                                FILE_ATTRIBUTE_NORMAL,
+                                nullptr);
 
     if (device == INVALID_HANDLE_VALUE) {
         std::wcerr << L"[ERROR] Failed to open device: " << GetLastError() << L"\n";
