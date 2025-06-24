@@ -18,9 +18,9 @@ bcdedit /set testsigning on
 ```
 The `bcdedit` command requires **a reboot** in order to take effect.
 
-Next, after a reboot, we need to install the driver. The driver is located (from the root of this repository, `<SOLUTION_ROOT>`) at `x64\Release\MemoryGraveyardDriver.sys`. To this end, open an elevated command line and type:
+Next, after a reboot, we need to install the driver. The driver `MemoryGraveyardDriver.sys` is located (from the root of this repository, `<SOLUTION_ROOT>`) at `\x64\Release\MemoryGraveyardDriver\`. To this end, open an elevated command line and type:
 ```
-sc create graveyard type= kernel binPath= <SOLUTION_ROOT>\x64\Release\MemoryGraveyardDriver.sys
+sc create graveyard type= kernel binPath= <SOLUTION_ROOT>\x64\Release\MemoryGraveyardDriver\MemoryGraveyardDriver.sys
 ```
 After creating a service with the above program, you need to start the service:
 ```
