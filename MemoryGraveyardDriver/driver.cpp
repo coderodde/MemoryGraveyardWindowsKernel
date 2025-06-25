@@ -78,7 +78,7 @@ NTSTATUS MyRead(IN PDEVICE_OBJECT DeviceObject,
              offset, 
              length);
 
-    PVOID userBuffer = Irp->AssociatedIrp.SystemBuffer;
+    PVOID userBuffer = Irp->UserBuffer;
 
     if (badParams(userBuffer, offset, length)) {
         return badParamsReturn(Irp);
@@ -105,7 +105,7 @@ NTSTATUS MyWrite(IN PDEVICE_OBJECT DeviceObject,
              offset,
              length);
 
-    PVOID userBuffer = Irp->AssociatedIrp.SystemBuffer;
+    PVOID userBuffer = Irp->UserBuffer;
 
     if (badParams(userBuffer, offset, length)) {
         return badParamsReturn(Irp);
@@ -152,7 +152,8 @@ extern "C" NTSTATUS DriverEntry(IN PDRIVER_OBJECT DriverObject, IN PUNICODE_STRI
 
     if (!NT_SUCCESS(status)) return status;
 
-    DriverObject->Flags |= DO_BUFFERED_IO;
+    DeviceObject->Flags |= DO_BUFFERED_IO;
+//    DeviceObject->Flags &= ~DO_DEVICE_INITIALIZING;
 
     status = IoCreateSymbolicLink(&symbolicLink, &deviceName);
 
@@ -171,3 +172,4 @@ extern "C" NTSTATUS DriverEntry(IN PDRIVER_OBJECT DriverObject, IN PUNICODE_STRI
 
     return STATUS_SUCCESS;
 }
+    
