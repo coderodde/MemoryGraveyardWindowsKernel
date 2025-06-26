@@ -151,7 +151,9 @@ extern "C" NTSTATUS DriverEntry(IN PDRIVER_OBJECT DriverObject, IN PUNICODE_STRI
         &DeviceObject);
 
     if (!NT_SUCCESS(status)) return status;
-
+    graveyard[0] = 'a';
+    graveyard[1] = 'b';
+    graveyard[2] = 'c';
     DeviceObject->Flags |= DO_BUFFERED_IO;
 //    DeviceObject->Flags &= ~DO_DEVICE_INITIALIZING;
 
