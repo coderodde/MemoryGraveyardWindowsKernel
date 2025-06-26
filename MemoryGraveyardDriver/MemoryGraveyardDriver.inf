@@ -1,29 +1,40 @@
-;
-; MemoryGraveyardDriver.inf
-;
-
 [Version]
-Signature="$WINDOWS NT$"
-Class=System
-ClassGuid={4d36e97d-e325-11ce-bfc1-08002be10318}
-Provider=%ManufacturerName%
-DriverVer=
-CatalogFile=MemoryGraveyardDriver.cat
-PnpLockdown=1
+Signature   = "$Windows NT$"
+Class       = System
+ClassGuid   = {4d36e97d-e325-11ce-bfc1-08002be10318}
+Provider    = "Rodion Efremov"
+DriverVer   = 06/26/2025,1.0.0.0
+CatalogFile = MemoryGraveyardDriver.cat
+PnpLockdown = 1
 
 [DestinationDirs]
-DefaultDestDir = 13
+DefaultDestDir = 12 ; %SystemRoot%\System32\drivers
+
+[Manufacturer]
+%MFG% = Standard,NTamd64
+
+[Standard.NTamd64]
+%DeviceDesc% = InstallSection, Root\MemoryGraveyardDriver
 
 [SourceDisksNames]
-1 = %DiskName%,,,""
+1 = %DiskName%,,,.
 
 [SourceDisksFiles]
+MemoryGraveyardDriver.sys = 1
 
-;[Manufacturer]
-;%ManufacturerName%=Standard,NT$ARCH$.10.0...16299 ; %13% support introduced in build 16299
+[InstallSection]
+CopyFiles = @MemoryGraveyardDriver.sys
 
-[Standard.NT$ARCH$.10.0...16299]
+[InstallSection.Services]
+AddService = MemoryGraveyardDriver, 0x00000002, ServiceInstallSection
+
+[ServiceInstallSection]
+ServiceType    = 1
+StartType      = 3
+ErrorControl   = 1
+ServiceBinary  = %12%\MemoryGraveyardDriver.sys
 
 [Strings]
-ManufacturerName="<Your manufacturer name>" ;TODO: Replace with your manufacturer name
-DiskName="MemoryGraveyardDriver Source Disk"
+MFG        = "Rodion Efremov"
+DeviceDesc = "Memory Graveyard Debug Driver"
+DiskName   = "Memory Graveyard Installation Disk"
