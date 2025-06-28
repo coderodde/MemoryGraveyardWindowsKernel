@@ -2,6 +2,6 @@
 <Project ToolsVersion="Current" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <SignMode>TestSign</SignMode>
-    <TestCertificate>CN="WDKTestCert rodio,133954081754618294" | AF5CF0FCF5DB1E3AC4AD5B89ADABCE72913A9727</TestCertificate>
+    <TestCertificate>CN="WDKTestCert rodio,133955633009247420" | 01D2F40734219E8CDE9AF5214875BDB176739CF0</TestCertificate>
   </PropertyGroup>
 </Project>

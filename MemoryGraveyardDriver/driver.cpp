@@ -70,21 +70,36 @@ NTSTATUS MyRead(IN PDEVICE_OBJECT DeviceObject,
 
     UNREFERENCED_PARAMETER(DeviceObject);
 
-    auto stack  = IoGetCurrentIrpStackLocation(Irp);
-    auto length = stack->Parameters.Read.Length;
-    auto offset = stack->Parameters.Read.ByteOffset.QuadPart;
+    PIO_STACK_LOCATION irpsl = IoGetCurrentIrpStackLocation(Irp);
 
-    DbgPrint("MyRead: offset %llu, length %lu\n",
-             offset, 
-             length);
+    ULONG length = irpsl->Parameters.Read.Length;
+    LARGE_INTEGER byteOffset = irpsl->Parameters.Read.ByteOffset;
+    ULONGLONG offset = byteOffset.QuadPart;
 
-    PVOID userBuffer = Irp->UserBuffer;
+    PVOID kernelBuffer = NULL;
 
-    if (badParams(userBuffer, offset, length)) {
+    if (Irp->MdlAddress) {
+        kernelBuffer = 
+            MmGetSystemAddressForMdlSafe(
+                Irp->MdlAddress,
+                NormalPagePriority);
+
+        if (kernelBuffer == NULL) {
+            Irp->IoStatus.Status = STATUS_INSUFFICIENT_RESOURCES;
+            Irp->IoStatus.Information = 0;
+            IoCompleteRequest(Irp, IO_NO_INCREMENT);
+            return STATUS_INSUFFICIENT_RESOURCES;
+        }
+    }
+
+    if (badParams(kernelBuffer, 
+                  offset, 
+                  length)) {
+
         return badParamsReturn(Irp);
     }
 
-    serveReadRequest(userBuffer, 
+    serveReadRequest(kernelBuffer, 
                      offset, 
                      length);
 
@@ -97,17 +112,29 @@ NTSTATUS MyWrite(IN PDEVICE_OBJECT DeviceObject,
                  IN PIRP Irp) {
     UNREFERENCED_PARAMETER(DeviceObject);
 
-    auto stack  = IoGetCurrentIrpStackLocation(Irp);
-    auto length = stack->Parameters.Write.Length;
-    auto offset = stack->Parameters.Write.ByteOffset.QuadPart;
+    PIO_STACK_LOCATION stack  = IoGetCurrentIrpStackLocation(Irp);
+    ULONG              length = stack->Parameters.Write.Length;
+    ULONGLONG          offset = stack->Parameters.Write.ByteOffset.QuadPart;
+    PVOID              userBuffer;
 
-    DbgPrint("MyWrite: offset %llu, length %lu\n", 
-             offset,
-             length);
+    if (Irp->MdlAddress == NULL) {
+        return badParamsReturn(Irp);
+    }
 
-    PVOID userBuffer = Irp->UserBuffer;
+    userBuffer = MmGetSystemAddressForMdlSafe(Irp->MdlAddress,
+                                              NormalPagePriority);
 
-    if (badParams(userBuffer, offset, length)) {
+    if (userBuffer == NULL) {
+        Irp->IoStatus.Status = STATUS_INSUFFICIENT_RESOURCES;
+        Irp->IoStatus.Information = 0;
+        IoCompleteRequest(Irp, IO_NO_INCREMENT);
+        return STATUS_INSUFFICIENT_RESOURCES;
+    }
+
+    if (badParams(userBuffer, 
+                  offset, 
+                  length)) {
+
         return badParamsReturn(Irp);
     }
 
@@ -154,8 +181,7 @@ extern "C" NTSTATUS DriverEntry(IN PDRIVER_OBJECT DriverObject, IN PUNICODE_STRI
     graveyard[0] = 'a';
     graveyard[1] = 'b';
     graveyard[2] = 'c';
-    DeviceObject->Flags |= DO_BUFFERED_IO;
-//    DeviceObject->Flags &= ~DO_DEVICE_INITIALIZING;
+    DeviceObject->Flags |= DO_DIRECT_IO;
 
     status = IoCreateSymbolicLink(&symbolicLink, &deviceName);
 
