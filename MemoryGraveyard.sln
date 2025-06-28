@@ -7,8 +7,6 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "MemoryGraveyardDriver", "Me
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "MemoryGraveyardClient", "MemoryGraveyardClient\MemoryGraveyardClient.vcxproj", "{001E8854-1B00-4D27-B989-DEA2EFBEDED5}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "GraveyardReader", "GraveyardReader\GraveyardReader.vcxproj", "{8B993A5F-915F-4DC9-82CD-D933BDBCFC9D}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|ARM64 = Debug|ARM64
@@ -37,14 +35,6 @@ Global
 		{001E8854-1B00-4D27-B989-DEA2EFBEDED5}.Release|ARM64.Build.0 = Release|x64
 		{001E8854-1B00-4D27-B989-DEA2EFBEDED5}.Release|x64.ActiveCfg = Release|x64
 		{001E8854-1B00-4D27-B989-DEA2EFBEDED5}.Release|x64.Build.0 = Release|x64
-		{8B993A5F-915F-4DC9-82CD-D933BDBCFC9D}.Debug|ARM64.ActiveCfg = Debug|x64
-		{8B993A5F-915F-4DC9-82CD-D933BDBCFC9D}.Debug|ARM64.Build.0 = Debug|x64
-		{8B993A5F-915F-4DC9-82CD-D933BDBCFC9D}.Debug|x64.ActiveCfg = Debug|x64
-		{8B993A5F-915F-4DC9-82CD-D933BDBCFC9D}.Debug|x64.Build.0 = Debug|x64
-		{8B993A5F-915F-4DC9-82CD-D933BDBCFC9D}.Release|ARM64.ActiveCfg = Release|x64
-		{8B993A5F-915F-4DC9-82CD-D933BDBCFC9D}.Release|ARM64.Build.0 = Release|x64
-		{8B993A5F-915F-4DC9-82CD-D933BDBCFC9D}.Release|x64.ActiveCfg = Release|x64
-		{8B993A5F-915F-4DC9-82CD-D933BDBCFC9D}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
