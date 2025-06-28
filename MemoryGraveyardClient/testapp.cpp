@@ -110,6 +110,10 @@ static void doWrite(HANDLE device, const std::vector<std::string> tokens) {
 
     DWORD dwBytesWritten = 0;
 
+    memcpy(writeBuffer + offset, 
+           ctext,
+           length);
+
     if (!WriteFile(device,
                    writeBuffer,
                    length, 
@@ -181,4 +185,4 @@ int main() {
     CloseHandle(device);
     std::cout << "[INFO] Closed the driver handle.\n";
     return EXIT_SUCCESS;
-}
+}   
