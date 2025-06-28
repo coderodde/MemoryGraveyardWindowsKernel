@@ -5,37 +5,52 @@ This device driver is not supposed to synchronize access to the graveyard buffer
 Also, it is not supposed to initialize the graveyard.
 */
 
-#define BUFF_SIZE 1024
+static constexpr size_t BUFF_SIZE = 1024;
 
 static char graveyard[BUFF_SIZE];
 
 // Marks the Irp as completed and returns an error status for bad parameters:
-static NTSTATUS badParamsReturn(PIRP Irp) {
-    Irp->IoStatus.Status = STATUS_INVALID_PARAMETER;
+static NTSTATUS BadParamsReturn(PIRP Irp) {
+    Irp->IoStatus.Status      = STATUS_INVALID_PARAMETER;
     Irp->IoStatus.Information = 0;
+
     IoCompleteRequest(Irp, IO_NO_INCREMENT);
+    
     return STATUS_INVALID_PARAMETER;
 }
 
+static NTSTATUS InsufficientResourcesReturn(PIRP Irp) {
+    Irp->IoStatus.Status      = STATUS_INSUFFICIENT_RESOURCES;
+    Irp->IoStatus.Information = 0;
+
+    IoCompleteRequest(Irp, IO_NO_INCREMENT);
+    
+    return STATUS_INSUFFICIENT_RESOURCES;
+}
+
 // Marks the Irp as completed and returns a normal status with transferred bytes:
-static NTSTATUS normalReturn(PIRP Irp, 
+static NTSTATUS NormalReturn(PIRP Irp, 
                              ULONG transferred = 0) {
 
-    Irp->IoStatus.Status = STATUS_SUCCESS;
+    Irp->IoStatus.Status      = STATUS_SUCCESS;
     Irp->IoStatus.Information = transferred;
+
     IoCompleteRequest(Irp, IO_NO_INCREMENT);
+    
     return STATUS_SUCCESS;
 }
 
 // Checks if the parameters are valid:
-static bool badParams(PVOID     userBuffer, 
+static bool BadParams(PVOID     userBuffer, 
                       ULONGLONG offsetBytes,
                       ULONG     lengthBytes) {
 
-    if (userBuffer == nullptr || lengthBytes == 0) return true;
+    if (userBuffer == nullptr || lengthBytes == 0) {
+        return true;
+    }
 
     // The size of the graveyard buffer:
-    ULONGLONG graveyardSize = sizeof(graveyard);
+    const ULONGLONG graveyardSize = sizeof(graveyard);
 
     if (offsetBytes >= graveyardSize) {
         return true;
@@ -45,7 +60,7 @@ static bool badParams(PVOID     userBuffer,
 }
 
 // Read handler:
-static void serveReadRequest(PVOID     userBuffer,
+static void ServeReadRequest(PVOID     userBuffer,
                              ULONGLONG offset, 
                              ULONG     length) {
 
@@ -55,7 +70,7 @@ static void serveReadRequest(PVOID     userBuffer,
 }
 
 // Write handler:
-static void serveWriteRequest(PVOID     userBuffer,
+static void ServeWriteRequest(PVOID     userBuffer,
                               ULONGLONG offset,
                               ULONG     length) {
 
@@ -65,18 +80,16 @@ static void serveWriteRequest(PVOID     userBuffer,
 }
 
 // The read handler for the driver:
-NTSTATUS MyRead(IN PDEVICE_OBJECT DeviceObject, 
+NTSTATUS OnRead(IN PDEVICE_OBJECT DeviceObject, 
                 IN PIRP           Irp) {
 
     UNREFERENCED_PARAMETER(DeviceObject);
 
-    PIO_STACK_LOCATION irpsl = IoGetCurrentIrpStackLocation(Irp);
-
-    ULONG length = irpsl->Parameters.Read.Length;
-    LARGE_INTEGER byteOffset = irpsl->Parameters.Read.ByteOffset;
-    ULONGLONG offset = byteOffset.QuadPart;
-
-    PVOID kernelBuffer = NULL;
+    const PIO_STACK_LOCATION       stackLocation = IoGetCurrentIrpStackLocation(Irp);
+    const ULONG                    length        = stackLocation->Parameters.Read.Length;
+    const LARGE_INTEGER            byteOffset    = stackLocation->Parameters.Read.ByteOffset;
+    const ULONGLONG                offset        = byteOffset.QuadPart;
+          PVOID                    kernelBuffer  = NULL;
 
     if (Irp->MdlAddress) {
         kernelBuffer = 
@@ -85,72 +98,66 @@ NTSTATUS MyRead(IN PDEVICE_OBJECT DeviceObject,
                 NormalPagePriority);
 
         if (kernelBuffer == NULL) {
-            Irp->IoStatus.Status = STATUS_INSUFFICIENT_RESOURCES;
-            Irp->IoStatus.Information = 0;
-            IoCompleteRequest(Irp, IO_NO_INCREMENT);
-            return STATUS_INSUFFICIENT_RESOURCES;
+            return InsufficientResourcesReturn(Irp);
         }
     }
 
-    if (badParams(kernelBuffer, 
+    if (BadParams(kernelBuffer, 
                   offset, 
                   length)) {
 
-        return badParamsReturn(Irp);
+        return BadParamsReturn(Irp);
     }
 
-    serveReadRequest(kernelBuffer, 
+    ServeReadRequest(kernelBuffer, 
                      offset, 
                      length);
 
-    return normalReturn(Irp, 
+    return NormalReturn(Irp, 
                         length);
 }
 
 // The write handler for the driver:
-NTSTATUS MyWrite(IN PDEVICE_OBJECT DeviceObject, 
+NTSTATUS OnWrite(IN PDEVICE_OBJECT DeviceObject, 
                  IN PIRP Irp) {
     UNREFERENCED_PARAMETER(DeviceObject);
 
-    PIO_STACK_LOCATION stack  = IoGetCurrentIrpStackLocation(Irp);
-    ULONG              length = stack->Parameters.Write.Length;
-    ULONGLONG          offset = stack->Parameters.Write.ByteOffset.QuadPart;
-    PVOID              userBuffer;
+    const PIO_STACK_LOCATION stack  = IoGetCurrentIrpStackLocation(Irp);
+    const ULONG              length = stack->Parameters.Write.Length;
+    const ULONGLONG          offset = stack->Parameters.Write.ByteOffset.QuadPart;
+          PVOID              userBuffer;
 
     if (Irp->MdlAddress == NULL) {
-        return badParamsReturn(Irp);
+        return InsufficientResourcesReturn(Irp);
     }
 
     userBuffer = MmGetSystemAddressForMdlSafe(Irp->MdlAddress,
                                               NormalPagePriority);
 
     if (userBuffer == NULL) {
-        Irp->IoStatus.Status = STATUS_INSUFFICIENT_RESOURCES;
-        Irp->IoStatus.Information = 0;
-        IoCompleteRequest(Irp, IO_NO_INCREMENT);
-        return STATUS_INSUFFICIENT_RESOURCES;
+        return InsufficientResourcesReturn(Irp);
     }
 
-    if (badParams(userBuffer, 
+    if (BadParams(userBuffer, 
                   offset, 
                   length)) {
 
-        return badParamsReturn(Irp);
+        return BadParamsReturn(Irp);
     }
 
-    serveWriteRequest(userBuffer,
+    ServeWriteRequest(userBuffer,
                       offset,
                       length);
 
-    return normalReturn(Irp, 
+    return NormalReturn(Irp, 
                         length);
 }
 
-NTSTATUS MyCreateClose(IN PDEVICE_OBJECT DeviceObject, 
+NTSTATUS OnCreateClose(IN PDEVICE_OBJECT DeviceObject, 
                        IN PIRP Irp) {
 
     UNREFERENCED_PARAMETER(DeviceObject);
-    return normalReturn(Irp);
+    return NormalReturn(Irp);
 }
 
 VOID DriverUnload(IN PDRIVER_OBJECT DriverObject) {
@@ -158,7 +165,6 @@ VOID DriverUnload(IN PDRIVER_OBJECT DriverObject) {
     UNICODE_STRING symbolicLink = RTL_CONSTANT_STRING(L"\\??\\MemoryGraveyard");
     IoDeleteSymbolicLink(&symbolicLink);
     IoDeleteDevice(DriverObject->DeviceObject);
-    DbgPrint("MemoryGraveyard driver unloaded.\n");
 }
 
 extern "C" NTSTATUS DriverEntry(IN PDRIVER_OBJECT DriverObject, IN PUNICODE_STRING RegistryPath) {
@@ -168,19 +174,20 @@ extern "C" NTSTATUS DriverEntry(IN PDRIVER_OBJECT DriverObject, IN PUNICODE_STRI
     UNICODE_STRING symbolicLink = RTL_CONSTANT_STRING(L"\\??\\MemoryGraveyard");
     PDEVICE_OBJECT DeviceObject = nullptr;
 
-    NTSTATUS status = IoCreateDevice(
-        DriverObject,
-        0,
-        &deviceName,
-        FILE_DEVICE_UNKNOWN,
-        0,
-        FALSE,
-        &DeviceObject);
+    NTSTATUS status = 
+        IoCreateDevice(
+             DriverObject,
+             0,
+             &deviceName,
+             FILE_DEVICE_UNKNOWN,
+             0,
+             FALSE,
+             &DeviceObject);
 
-    if (!NT_SUCCESS(status)) return status;
-    graveyard[0] = 'a';
-    graveyard[1] = 'b';
-    graveyard[2] = 'c';
+    if (!NT_SUCCESS(status)) {
+        return status;
+    }
+
     DeviceObject->Flags |= DO_DIRECT_IO;
 
     status = IoCreateSymbolicLink(&symbolicLink, &deviceName);
@@ -190,13 +197,11 @@ extern "C" NTSTATUS DriverEntry(IN PDRIVER_OBJECT DriverObject, IN PUNICODE_STRI
         return status;
     }
 
-    DriverObject->MajorFunction[IRP_MJ_CREATE] = MyCreateClose;
-    DriverObject->MajorFunction[IRP_MJ_CLOSE]  = MyCreateClose;
-    DriverObject->MajorFunction[IRP_MJ_READ]   = MyRead;
-    DriverObject->MajorFunction[IRP_MJ_WRITE]  = MyWrite;
+    DriverObject->MajorFunction[IRP_MJ_CREATE] = OnCreateClose;
+    DriverObject->MajorFunction[IRP_MJ_CLOSE]  = OnCreateClose;
+    DriverObject->MajorFunction[IRP_MJ_READ]   = OnRead;
+    DriverObject->MajorFunction[IRP_MJ_WRITE]  = OnWrite;
     DriverObject->DriverUnload                 = DriverUnload;
-
-    DbgPrint("MemoryGraveyard driver loaded.\n");
 
     return STATUS_SUCCESS;
 }
