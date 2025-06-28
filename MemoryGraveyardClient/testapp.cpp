@@ -83,7 +83,7 @@ static void doRead(HANDLE device, const std::vector<std::string> tokens) {
         return;
     }
 
-    std::string text((char*) readBuffer + offset, length);
+    std::string text((char*) readBuffer, length);
 
     std::cout << "[RESULT] '" << text << "'\n";
 }
@@ -110,7 +110,7 @@ static void doWrite(HANDLE device, const std::vector<std::string> tokens) {
 
     DWORD dwBytesWritten = 0;
 
-    memcpy(writeBuffer + offset, 
+    memcpy(writeBuffer, 
            ctext,
            length);
 
